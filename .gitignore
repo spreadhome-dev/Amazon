@@ -1,0 +1,9 @@
+#Python
+*.pyc
+_pycache_/
+.db
+.env
+venv/
+env/
+*.log
+*.pot

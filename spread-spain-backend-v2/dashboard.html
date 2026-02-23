@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spread Spain — Amazon Intelligence Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --amber:#F5A623;--amber-dim:#C07D0A;--red:#E53E3E;--green:#38A169;
+  --blue:#3182CE;--bg:#080B10;--s1:#0E1218;--s2:#151C25;--s3:#1C2433;
+  --border:rgba(255,255,255,0.07);--text:#EDF2F7;--text2:#718096;--text3:#4A5568;
+  --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;--r:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(245,166,35,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(245,166,35,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* HEADER */
+.header{position:sticky;top:0;z-index:200;background:rgba(8,11,16,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:60px;}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:1px;color:var(--amber);}
+.logo span{color:var(--text2);font-weight:400;}
+.header-center{display:flex;align-items:center;gap:10px;}
+.api-status{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;transition:all 0.3s;}
+.api-status.online{background:rgba(56,161,105,0.1);border:1px solid rgba(56,161,105,0.25);color:var(--green);}
+.api-status.offline{background:rgba(229,62,62,0.1);border:1px solid rgba(229,62,62,0.25);color:var(--red);}
+.api-status.checking{background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.25);color:var(--amber);}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.header-right{display:flex;align-items:center;gap:8px;}
+
+/* SCHEDULER PILL */
+.sched-pill{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:6px;background:var(--s2);border:1px solid var(--border);font-size:12px;color:var(--text2);}
+.sched-pill label{color:var(--text3);font-size:11px;}
+.sched-pill select{background:transparent;border:none;color:var(--amber);font-family:var(--mono);font-size:11px;cursor:pointer;outline:none;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);border:1px solid var(--border);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:var(--s2);color:var(--text2);}
+.btn:hover{background:var(--s3);color:var(--text);border-color:rgba(255,255,255,0.15);}
+.btn.primary{background:var(--amber);color:#000;border-color:var(--amber);}
+.btn.primary:hover{background:var(--amber-dim);box-shadow:0 0 20px rgba(245,166,35,0.3);}
+.btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--border);position:relative;z-index:1;}
+.stat{padding:18px 24px;border-right:1px solid var(--border);transition:background 0.2s;}
+.stat:last-child{border-right:none;}
+.stat:hover{background:var(--s1);}
+.stat-label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
+.stat-val{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1;margin-bottom:3px;color:var(--text);}
+.stat-val.g{color:var(--green);}.stat-val.r{color:var(--red);}.stat-val.a{color:var(--amber);}
+.stat-sub{font-size:11px;color:var(--text3);}
+
+/* MAIN */
+.main{max-width:1700px;margin:0 auto;padding:24px 28px;position:relative;z-index:1;}
+
+/* OFFLINE BANNER */
+.offline-banner{display:none;background:rgba(229,62,62,0.1);border:1px solid rgba(229,62,62,0.3);border-radius:var(--r);padding:14px 18px;margin-bottom:20px;align-items:center;gap:12px;}
+.offline-banner.show{display:flex;}
+.offline-banner p{flex:1;font-size:13px;color:var(--red);}
+.offline-banner code{font-family:var(--mono);background:rgba(229,62,62,0.15);padding:2px 8px;border-radius:4px;font-size:12px;}
+
+/* ALERTS */
+.alerts-section{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:20px;overflow:hidden;}
+.alerts-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+.alerts-head-left{display:flex;align-items:center;gap:10px;}
+.alerts-title{font-weight:700;font-size:14px;}
+.alert-badge-count{background:var(--red);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;}
+.alerts-scroll{display:flex;gap:10px;padding:12px 18px;overflow-x:auto;}
+.alerts-scroll::-webkit-scrollbar{height:3px;}
+.alerts-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+.alert-card{min-width:280px;max-width:280px;padding:11px 14px;border-radius:6px;border-left:3px solid;display:flex;align-items:flex-start;gap:10px;flex-shrink:0;}
+.alert-card.critical{border-color:var(--red);background:rgba(229,62,62,0.06);}
+.alert-card.warning{border-color:var(--amber);background:rgba(245,166,35,0.06);}
+.alert-card.info{border-color:var(--blue);background:rgba(49,130,206,0.06);}
+.alert-icon{font-size:16px;margin-top:1px;}
+.alert-msg{font-size:12px;font-weight:600;margin-bottom:2px;line-height:1.3;}
+.alert-prod{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+.no-alerts{padding:20px;text-align:center;color:var(--text3);font-size:13px;width:100%;}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;flex-wrap:wrap;}
+.toolbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.search-wrap{position:relative;}
+.search-wrap input{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:8px 12px 8px 34px;color:var(--text);font-size:13px;width:240px;outline:none;font-family:var(--sans);transition:all 0.2s;}
+.search-wrap input:focus{border-color:var(--amber);background:var(--s3);}
+.search-wrap .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px;}
+.filt{padding:7px 13px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all 0.2s;white-space:nowrap;}
+.filt:hover,.filt.on{background:rgba(245,166,35,0.1);color:var(--amber);border-color:rgba(245,166,35,0.3);}
+.prod-count{font-family:var(--mono);font-size:11px;color:var(--text3);white-space:nowrap;}
+
+/* SCRAPE PROGRESS */
+.scrape-progress{display:none;background:var(--s1);border:1px solid rgba(245,166,35,0.2);border-radius:var(--r);padding:14px 18px;margin-bottom:16px;align-items:center;gap:14px;}
+.scrape-progress.show{display:flex;}
+.progress-bar-wrap{flex:1;background:var(--s3);border-radius:4px;height:6px;overflow:hidden;}
+.progress-bar{height:100%;background:var(--amber);border-radius:4px;transition:width 0.3s;width:0%;}
+.progress-text{font-family:var(--mono);font-size:11px;color:var(--amber);white-space:nowrap;}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:all 0.25s;display:flex;flex-direction:column;}
+.card:hover{border-color:rgba(245,166,35,0.35);box-shadow:0 8px 30px rgba(0,0,0,0.5);transform:translateY(-2px);}
+.card-img{width:100%;height:200px;background:var(--s2);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.card-img img{width:100%;height:100%;object-fit:contain;padding:8px;transition:transform 0.3s;}
+.card:hover .card-img img{transform:scale(1.04);}
+.card-img .ph{font-size:40px;color:var(--text3);opacity:0.4;}
+.stock-tag{position:absolute;top:8px;right:8px;padding:4px 9px;border-radius:5px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.5px;backdrop-filter:blur(8px);}
+.stock-tag.in{background:rgba(56,161,105,0.85);color:#fff;}
+.stock-tag.out{background:rgba(229,62,62,0.85);color:#fff;}
+.card-alert-tags{position:absolute;top:8px;left:8px;display:flex;flex-direction:column;gap:4px;}
+.cat-tag{position:absolute;bottom:8px;left:8px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.5px;background:rgba(0,0,0,0.7);color:var(--amber);backdrop-filter:blur(6px);text-transform:uppercase;}
+.ctag{padding:3px 7px;border-radius:4px;font-size:9px;font-weight:700;backdrop-filter:blur(8px);}
+.ctag.so{background:rgba(229,62,62,0.85);color:#fff;}
+.ctag.lr{background:rgba(245,166,35,0.85);color:#000;}
+.card-body{padding:14px;flex:1;display:flex;flex-direction:column;gap:10px;}
+.card-title{font-size:13px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--text);}
+.card-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.met{background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:8px 10px;}
+.met-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:3px;font-family:var(--mono);}
+.met-val{font-size:14px;font-weight:700;font-family:var(--mono);color:var(--text);}
+.met-val.a{color:var(--amber);}.met-val.b{color:var(--blue);}.met-val.g{color:var(--green);}
+.card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);margin-top:auto;}
+.price{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);}
+.disc{font-family:var(--mono);font-size:12px;color:var(--red);font-weight:700;}
+.card-btns{display:flex;gap:5px;margin-top:8px;}
+.cbtn{flex:1;padding:7px;font-size:11px;font-weight:700;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text2);cursor:pointer;transition:all 0.2s;font-family:var(--sans);}
+.cbtn:hover{background:var(--s3);color:var(--text);border-color:rgba(255,255,255,0.15);}
+.cbtn.ref:hover{border-color:var(--amber);color:var(--amber);}
+.cbtn.spinning{animation:spin 0.6s linear infinite;opacity:0.6;cursor:wait;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* EMPTY */
+.empty{grid-column:1/-1;padding:80px 20px;text-align:center;}
+.empty-icon{font-size:56px;margin-bottom:16px;opacity:0.3;}
+.empty-title{font-size:18px;font-weight:700;margin-bottom:6px;}
+.empty-sub{font-size:13px;color:var(--text2);}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:500;display:none;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:12px;width:90%;max-width:560px;padding:28px;animation:mslide 0.25s ease;}
+@keyframes mslide{from{transform:translateY(16px);opacity:0;}to{transform:none;opacity:1;}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.modal-title{font-size:18px;font-weight:800;}
+.modal-close{background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:all 0.2s;}
+.modal-close:hover{background:var(--s2);color:var(--text);}
+.form-group{margin-bottom:16px;}
+.form-label{display:block;font-size:12px;font-weight:700;margin-bottom:7px;letter-spacing:0.3px;}
+.form-input{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;outline:none;transition:all 0.2s;font-family:var(--mono);}
+.form-input:focus{border-color:var(--amber);}
+.form-note{font-size:11px;color:var(--text3);margin-top:6px;}
+.modal-actions{display:flex;gap:10px;margin-top:22px;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">🛒 SPREAD SPAIN <span>/ Monitor</span></div>
+
+  <div class="header-center">
+    <div class="api-status checking" id="api-status">
+      <span class="dot"></span>
+      <span id="api-status-text">CHECKING...</span>
+    </div>
+    <div class="sched-pill">
+      <label>Auto-scrape every</label>
+      <select id="sched-select" onchange="updateSchedule(this.value)">
+        <option value="0.5">30 min</option>
+        <option value="1">1 hr</option>
+        <option value="2">2 hr</option>
+        <option value="4">4 hr</option>
+        <option value="6" selected>6 hr</option>
+        <option value="12">12 hr</option>
+        <option value="24">24 hr</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <button class="btn" onclick="triggerCSVUpload()">📂 Upload URL List</button>
+    <button class="btn" onclick="exportCSV()">⬇ Export</button>
+    <button class="btn primary" id="refresh-btn" onclick="refreshAll()">🔄 Refresh All</button>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-label">Total Products</div><div class="stat-val" id="s-total">—</div><div class="stat-sub">Monitored</div></div>
+  <div class="stat"><div class="stat-label">In Stock</div><div class="stat-val g" id="s-instock">—</div><div class="stat-sub" id="s-instock-pct">—</div></div>
+  <div class="stat"><div class="stat-label">Avg Rating</div><div class="stat-val a" id="s-rating">—</div><div class="stat-sub">Out of 5.0</div></div>
+  <div class="stat"><div class="stat-label">Active Alerts</div><div class="stat-val r" id="s-alerts">—</div><div class="stat-sub">Needs attention</div></div>
+  <div class="stat"><div class="stat-label">Out of Stock</div><div class="stat-val r" id="s-oos">—</div><div class="stat-sub">Unavailable</div></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- OFFLINE BANNER -->
+  <div class="offline-banner" id="offline-banner">
+    <span style="font-size:22px">⚠️</span>
+    <p><strong>Backend offline.</strong> Start the server with <code>python app.py</code> in your backend folder, then refresh this page.</p>
+    <button class="btn" onclick="checkAPIHealth()">↻ Retry</button>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="alerts-section">
+    <div class="alerts-head">
+      <div class="alerts-head-left">
+        <span>🚨</span>
+        <span class="alerts-title">Active Alerts</span>
+        <span class="alert-badge-count" id="alert-count">0</span>
+      </div>
+      <button class="btn" onclick="clearAlerts()" style="padding:5px 12px;font-size:12px;">Clear All</button>
+    </div>
+    <div class="alerts-scroll" id="alerts-list">
+      <div class="no-alerts">✅ No active alerts — all products healthy</div>
+    </div>
+  </div>
+
+  <!-- SCRAPE PROGRESS -->
+  <div class="scrape-progress" id="scrape-progress">
+    <span style="font-size:16px">⚙️</span>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="progress-text" id="progress-text">Starting...</div>
+    <button class="btn" style="padding:5px 10px;font-size:11px;" onclick="dismissProgress()">Dismiss</button>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="search-wrap">
+        <span class="si">🔍</span>
+        <input type="text" placeholder="Search products..." id="search-input" oninput="applyFilters()">
+      </div>
+      <button class="filt on" onclick="setFilter(this,'all')">All</button>
+      <button class="filt" onclick="setFilter(this,'alerts')">With Alerts</button>
+      <button class="filt" onclick="setFilter(this,'in-stock')">In Stock</button>
+      <button class="filt" onclick="setFilter(this,'out-of-stock')">Out of Stock</button>
+      <button class="filt" onclick="setFilter(this,'top-rating')">Top Rated</button>
+      <button class="filt" onclick="setFilter(this,'most-reviewed')">Most Reviewed</button>
+      <button class="filt" onclick="setFilter(this,'top-rank')">Best Rank</button>
+      <button class="filt" onclick="setFilter(this,'top-performer')">🏆 Top Performers</button>
+      <button class="filt" onclick="setFilter(this,'worst-performer')">⚠️ Worst Performers</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="prod-count" id="prod-count">0 products</span>
+      <button class="btn primary" onclick="openAddModal()">➕ Add Product</button>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div class="grid" id="products-grid">
+    <div class="empty">
+      <div class="empty-icon">📦</div>
+      <div class="empty-title">No Products Yet</div>
+      <div class="empty-sub">Upload your URL list CSV or add a product URL to get started.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add New Product</div>
+      <button class="modal-close" onclick="closeAddModal()">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Amazon India Product URL</label>
+      <input type="text" class="form-input" id="new-url" placeholder="https://www.amazon.in/dp/B0XXXXXXXXX">
+      <div class="form-note">The backend will scrape live data — title, price, rating, rank, stock & image.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddModal()">Cancel</button>
+      <button class="btn primary" id="add-btn" onclick="addProduct()" style="flex:1;">Add & Scrape Product</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleCSVUpload(event)">
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════
+const API = "http://localhost:5000/api";
+let products = [];
+let alerts = [];
+let currentFilter = 'all';
+let apiOnline = false;
+let pollInterval = null;
+
+// ══════════════════════════════════════════
+//  API HELPERS
+// ══════════════════════════════════════════
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { "Content-Type": "application/json" },
+    ...opts
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function checkAPIHealth() {
+  const el = document.getElementById('api-status');
+  const txt = document.getElementById('api-status-text');
+  el.className = 'api-status checking';
+  txt.textContent = 'CHECKING...';
+  try {
+    await api("/health");
+    el.className = 'api-status online';
+    txt.textContent = 'BACKEND ONLINE';
+    document.getElementById('offline-banner').classList.remove('show');
+    apiOnline = true;
+    loadProducts();
+    loadStats();
+    startPolling();
+  } catch {
+    el.className = 'api-status offline';
+    txt.textContent = 'BACKEND OFFLINE';
+    document.getElementById('offline-banner').classList.add('show');
+    apiOnline = false;
+  }
+}
+
+// ══════════════════════════════════════════
+//  POLLING — auto-refresh stats every 30s
+// ══════════════════════════════════════════
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(() => {
+    if (apiOnline) { loadStats(); loadProducts(); }
+  }, 30_000);
+}
+
+// ══════════════════════════════════════════
+//  LOAD DATA
+// ══════════════════════════════════════════
+async function loadProducts() {
+  try {
+    const data = await api("/products");
+    products = data;
+    computeAlerts();
+    applyFilters();
+    renderAlerts();
+  } catch(e) { console.error("loadProducts:", e); }
+}
+
+async function loadStats() {
+  try {
+    const s = await api("/stats");
+    document.getElementById('s-total').textContent = s.total;
+    document.getElementById('s-instock').textContent = s.in_stock;
+    document.getElementById('s-instock-pct').textContent = s.total ? `${Math.round(s.in_stock/s.total*100)}% available` : '—';
+    document.getElementById('s-rating').textContent = s.avg_rating ?? '—';
+    document.getElementById('s-alerts').textContent = s.active_alerts;
+    document.getElementById('s-oos').textContent = s.out_of_stock;
+  } catch(e) { console.error("loadStats:", e); }
+}
+
+// ══════════════════════════════════════════
+//  ADD PRODUCT
+// ══════════════════════════════════════════
+function openAddModal() { document.getElementById('add-modal').classList.add('open'); }
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+  document.getElementById('new-url').value = '';
+}
+
+async function addProduct() {
+  if (!apiOnline) return alert("Backend is offline. Start the server first.");
+  const url = document.getElementById('new-url').value.trim();
+  if (!url || !url.includes('amazon.in/dp/')) {
+    return alert('Please enter a valid Amazon India URL');
+  }
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true; btn.textContent = 'Scraping...';
+  closeAddModal();
+  showProgress("Scraping new product...", 0);
+  try {
+    const product = await api("/products", {
+      method: "POST",
+      body: JSON.stringify({ url })
+    });
+    products.push(product);
+    computeAlerts();
+    applyFilters();
+    renderAlerts();
+    loadStats();
+    hideProgress();
+  } catch(e) {
+    hideProgress();
+    alert(`Failed: ${e.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Add & Scrape Product';
+  }
+}
+
+// ══════════════════════════════════════════
+//  CSV UPLOAD
+// ══════════════════════════════════════════
+function triggerCSVUpload() {
+  if (!apiOnline) return alert("Backend is offline. Start the server first.");
+  document.getElementById('csv-input').click();
+}
+
+async function handleCSVUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: async (results) => {
+      let urls = [];
+      results.data.forEach(row => {
+        const v = row.URL || row.url || row.Link || Object.values(row)[0];
+        if (v && v.includes('amazon.in/dp/')) urls.push(v.trim());
+      });
+      urls = [...new Set(urls)];
+      if (urls.length === 0) return alert('No Amazon India URLs found in CSV.');
+
+      showProgress(`Sending ${urls.length} URLs to backend...`, 10);
+      try {
+        const res = await api("/products/bulk", {
+          method: "POST",
+          body: JSON.stringify({ urls })
+        });
+        showProgress(`Backend is scraping ${res.queued} products in the background...`, 50);
+        // Poll until product count stabilises
+        let prev = products.length;
+        let stableCount = 0;
+        const poll = setInterval(async () => {
+          await loadProducts();
+          await loadStats();
+          const pct = Math.min(99, Math.round((products.length - prev + res.queued) / res.queued * 100));
+          const done = products.length - prev;
+          updateProgress(`Scraped ${done} / ${res.queued} new products`, Math.max(50, pct));
+          if (done >= res.queued * 0.95) {
+            stableCount++;
+            if (stableCount >= 2) { clearInterval(poll); hideProgress(); }
+          }
+        }, 4000);
+        setTimeout(() => { clearInterval(poll); hideProgress(); }, 120_000);
+      } catch(e) {
+        hideProgress();
+        alert(`Bulk import error: ${e.message}`);
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+//  REFRESH
+// ══════════════════════════════════════════
+async function refreshAll() {
+  if (!apiOnline) return alert("Backend is offline.");
+  document.getElementById('refresh-btn').disabled = true;
+  showProgress("Refresh started — backend is scraping all products...", 20);
+  try {
+    await api("/products/refresh", { method: "POST" });
+    // Poll for completion
+    let stable = 0;
+    const t = setInterval(async () => {
+      await loadProducts();
+      await loadStats();
+      stable++;
+      updateProgress(`Refreshing... (${stable * 4}s elapsed)`, Math.min(90, 20 + stable * 5));
+      if (stable >= 20) { clearInterval(t); hideProgress(); }
+    }, 4000);
+    setTimeout(() => { clearInterval(t); hideProgress(); }, 90_000);
+  } catch(e) {
+    hideProgress();
+    alert(`Refresh error: ${e.message}`);
+  } finally {
+    document.getElementById('refresh-btn').disabled = false;
+  }
+}
+
+async function refreshOne(url, btn) {
+  if (!apiOnline) return alert("Backend is offline.");
+  if (btn) { btn.textContent = '↻'; btn.classList.add('spinning'); btn.disabled = true; }
+  try {
+    const updated = await api("/products/refresh-one", {
+      method: "POST",
+      body: JSON.stringify({ url })
+    });
+    const idx = products.findIndex(p => p.url === url);
+    if (idx !== -1) products[idx] = updated;
+    computeAlerts();
+    applyFilters();
+    renderAlerts();
+    loadStats();
+  } catch(e) {
+    alert(`Refresh failed: ${e.message}`);
+  } finally {
+    if (btn) { btn.textContent = '↻ Refresh'; btn.classList.remove('spinning'); btn.disabled = false; }
+  }
+}
+
+async function removeProduct(url) {
+  if (!confirm('Remove this product from monitoring?')) return;
+  try {
+    await api(`/products/${encodeURIComponent(url)}`, { method: "DELETE" });
+    products = products.filter(p => p.url !== url);
+    computeAlerts();
+    applyFilters();
+    renderAlerts();
+    loadStats();
+  } catch(e) { alert(`Remove error: ${e.message}`); }
+}
+
+// ══════════════════════════════════════════
+//  SCHEDULER
+// ══════════════════════════════════════════
+async function updateSchedule(hours) {
+  if (!apiOnline) return;
+  try {
+    await api("/scheduler", { method: "POST", body: JSON.stringify({ hours: parseFloat(hours) }) });
+  } catch(e) { console.error("Schedule update:", e); }
+}
+
+// ══════════════════════════════════════════
+//  ALERTS
+// ══════════════════════════════════════════
+function computeAlerts() {
+  alerts = [];
+  for (const p of products) {
+    const inStock = (p.stock||'').toLowerCase().includes('in stock');
+    const rating = parseFloat(p.rating);
+    if (!inStock) alerts.push({ severity:'critical', icon:'🚫', msg:'Out of stock', prod: p.title });
+    if (!isNaN(rating) && rating < 4.0) alerts.push({ severity:'warning', icon:'⚠️', msg:`Low rating: ${rating.toFixed(1)} / 5.0`, prod: p.title });
+  }
+}
+
+function getCardAlerts(p) {
+  const a = [];
+  if (!(p.stock||'').toLowerCase().includes('in stock')) a.push({cls:'so', icon:'🚫', text:'OOS'});
+  const r = parseFloat(p.rating);
+  if (!isNaN(r) && r < 4.0) a.push({cls:'lr', icon:'⚠️', text:'Low Rating'});
+  return a;
+}
+
+function hasAlert(p) { return getCardAlerts(p).length > 0; }
+
+function clearAlerts() { alerts = []; renderAlerts(); }
+
+function renderAlerts() {
+  const list = document.getElementById('alerts-list');
+  document.getElementById('alert-count').textContent = alerts.length;
+  const show = alerts.slice(0, 5);
+  if (!show.length) { list.innerHTML = '<div class="no-alerts">✅ No active alerts — all products healthy</div>'; return; }
+  list.innerHTML = show.map(a => `
+    <div class="alert-card ${a.severity}">
+      <div class="alert-icon">${a.icon}</div>
+      <div>
+        <div class="alert-msg">${a.msg}</div>
+        <div class="alert-prod">${(a.prod||'').substring(0,55)}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════
+//  FILTERS & GRID
+// ══════════════════════════════════════════
+function setFilter(btn, filter) {
+  document.querySelectorAll('.filt').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  currentFilter = filter;
+  applyFilters();
+}
+
+function applyFilters() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  let list = products.filter(p => {
+    const ms = (p.title||'').toLowerCase().includes(search) || (p.category||'').toLowerCase().includes(search);
+    let mf = true;
+    switch(currentFilter) {
+      case 'alerts': mf = hasAlert(p); break;
+      case 'in-stock': mf = (p.stock||'').toLowerCase().includes('in stock'); break;
+      case 'out-of-stock': mf = !(p.stock||'').toLowerCase().includes('in stock'); break;
+      case 'top-performer': mf = parseFloat(p.rating) >= 4.3 && (p.stock||'').toLowerCase().includes('in stock'); break;
+      case 'worst-performer': mf = parseFloat(p.rating) < 3.5 || !(p.stock||'').toLowerCase().includes('in stock'); break;
+    }
+    return ms && mf;
+  });
+
+  if (currentFilter === 'top-rating') list.sort((a,b) => (parseFloat(b.rating)||0)-(parseFloat(a.rating)||0));
+  else if (currentFilter === 'most-reviewed') list.sort((a,b) => parseInt(b.reviews||0)-parseInt(a.reviews||0));
+  else if (currentFilter === 'top-rank') list.sort((a,b) => parseInt(a.rank||999999)-parseInt(b.rank||999999));
+  else if (currentFilter === 'top-performer') list.sort((a,b) => (parseFloat(b.rating)||0)-(parseFloat(a.rating)||0));
+  else if (currentFilter === 'worst-performer') list.sort((a,b) => (parseFloat(a.rating)||5)-(parseFloat(b.rating)||5));
+
+  renderGrid(list);
+  document.getElementById('prod-count').textContent = `${list.length} product${list.length!==1?'s':''}`;
+}
+
+function renderGrid(list) {
+  const grid = document.getElementById('products-grid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">${products.length ? '🔍' : '📦'}</div><div class="empty-title">${products.length ? 'No matches' : 'No Products Yet'}</div><div class="empty-sub">${products.length ? 'Try a different filter.' : 'Upload your URL list CSV or add a product URL.'}</div></div>`;
+    return;
+  }
+  grid.innerHTML = list.map(p => {
+    const inStock = (p.stock||'').toLowerCase().includes('in stock');
+    const r = parseFloat(p.rating);
+    const hasR = !isNaN(r);
+    const cardAlerts = getCardAlerts(p);
+    const price = parseInt(p.price||0);
+    const mrp = parseInt(p.mrp||0);
+    const disc = mrp > price ? `-${Math.round((1-price/mrp)*100)}%` : null;
+
+    return `
+    <div class="card">
+      <div class="card-img">
+        ${p.image ? `<img src="${p.image}" alt="" onerror="this.parentNode.innerHTML='<div class=ph>📦</div>'">` : '<div class="ph">📦</div>'}
+        <div class="stock-tag ${inStock?'in':'out'}">${inStock?'✓ IN STOCK':'✗ OUT OF STOCK'}</div>
+        ${cardAlerts.length ? `<div class="card-alert-tags">${cardAlerts.map(a=>`<div class="ctag ${a.cls}">${a.icon} ${a.text}</div>`).join('')}</div>` : ''}
+        <div class="cat-tag">${p.category||'—'}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${p.title||'Unknown Product'}</div>
+        <div class="card-metrics">
+          <div class="met"><div class="met-label">Rating</div><div class="met-val a">${hasR?r.toFixed(1)+'★':'N/A'}</div></div>
+          <div class="met"><div class="met-label">Reviews</div><div class="met-val">${fmt(p.reviews)}</div></div>
+          <div class="met"><div class="met-label">BSR Rank</div><div class="met-val b">#${fmt(p.rank)}</div></div>
+        </div>
+        <div class="card-footer">
+          <div>
+            <div class="price">₹${fmt(p.price)}</div>
+            ${mrp > price ? `<div style="font-size:11px;color:var(--text3);text-decoration:line-through;font-family:var(--mono);">MRP ₹${fmt(p.mrp)}</div>` : ''}
+          </div>
+          ${disc ? `<div class="disc">${disc}</div>` : ''}
+        </div>
+        <div class="card-btns">
+          <button class="cbtn" onclick="window.open('${p.url}','_blank')">🔗 Amazon</button>
+          <button class="cbtn ref" id="ref-${p.asin}" onclick="refreshOne('${p.url}', this)">↻ Refresh</button>
+          <button class="cbtn" onclick="removeProduct('${p.url}')" style="max-width:36px;">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════
+function exportCSV() {
+  if (!products.length) return alert('No products to export.');
+  const csv = Papa.unparse(products.map(p => ({
+    URL: p.url, ASIN: p.asin, Title: p.title, Category: p.category,
+    Price: p.price, MRP: p.mrp, Rating: p.rating, Reviews: p.reviews,
+    'BSR Rank': p.rank, Stock: p.stock, 'Last Scraped': p.last_scraped
+  })));
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `spread_spain_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// ══════════════════════════════════════════
+//  PROGRESS BAR
+// ══════════════════════════════════════════
+function showProgress(msg, pct = 0) {
+  document.getElementById('scrape-progress').classList.add('show');
+  document.getElementById('progress-text').textContent = msg;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+function updateProgress(msg, pct) {
+  document.getElementById('progress-text').textContent = msg;
+  document.getElementById('progress-bar').style.width = Math.min(99, pct) + '%';
+}
+function hideProgress() {
+  document.getElementById('progress-bar').style.width = '100%';
+  setTimeout(() => {
+    document.getElementById('scrape-progress').classList.remove('show');
+    document.getElementById('progress-bar').style.width = '0%';
+  }, 600);
+}
+function dismissProgress() {
+  document.getElementById('scrape-progress').classList.remove('show');
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function fmt(n) {
+  if (!n || n === 'N/A') return '0';
+  const num = parseInt(n.toString().replace(/[^\d]/g,''));
+  return isNaN(num) ? '0' : num.toLocaleString('en-IN');
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  checkAPIHealth();
+  // Retry API check every 10s if offline
+  setInterval(() => { if (!apiOnline) checkAPIHealth(); }, 10_000);
+});
+</script>
+</body>
+</html>
