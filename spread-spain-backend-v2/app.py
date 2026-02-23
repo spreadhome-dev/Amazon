@@ -266,6 +266,9 @@ def get_stats():
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "time": datetime.utcnow().isoformat()})
+@app.route("/")
+def home():
+    return "Server is running successfully ✅"
 
 
 # ─────────────────────────────────────────
